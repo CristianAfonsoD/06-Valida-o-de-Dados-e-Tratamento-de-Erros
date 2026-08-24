@@ -21,7 +21,14 @@ function toPositiveInt(value) {
 
 export const create = async (req, res) => {
   try {
-    const { enunciado, dificuldade, respostaCorreta, subjectId, authorId, ativa } = req.body;
+    const {
+      enunciado,
+      dificuldade,
+      respostaCorreta,
+      subjectId,
+      authorId,
+      ativa,
+    } = req.body;
     const subjectIdNumber = toPositiveInt(subjectId);
     const authorIdNumber = toPositiveInt(authorId);
     const difficultyNumber = Number(dificuldade);

@@ -18,13 +18,13 @@ enum Papel {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   nome      String
-  email     String    @unique
+  email     String     @unique
   foto      String?
-  papel     Papel     @default(PROFESSOR)
-  createdAt DateTime  @default(now()) @map("data_criacao")
-  updatedAt DateTime  @updatedAt @map("data_atualizacao")
+  papel     Papel      @default(PROFESSOR)
+  createdAt DateTime   @default(now()) @map("data_criacao")
+  updatedAt DateTime   @updatedAt @map("data_atualizacao")
   subjects  Subject[]
   questions Question[]
 

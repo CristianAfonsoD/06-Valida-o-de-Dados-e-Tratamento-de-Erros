@@ -19,7 +19,12 @@ export const create = async (req, res) => {
   try {
     const { nome, email, papel, foto } = req.body;
 
-    if (typeof nome !== "string" || !nome.trim() || typeof email !== "string" || !email.trim()) {
+    if (
+      typeof nome !== "string" ||
+      !nome.trim() ||
+      typeof email !== "string" ||
+      !email.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Nome e email são obrigatórios",
