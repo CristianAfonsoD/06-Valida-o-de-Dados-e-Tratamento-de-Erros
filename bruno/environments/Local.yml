@@ -2,26 +2,4 @@ name: Local
 variables:
   - name: baseUrl
     value: http://localhost:3000
-    enabled: true
-    secret: false
-    type: text
-  - name: userId
-    value: "1"
-    enabled: true
-    secret: false
-    type: text
-  - name: userEmail
-    value: aluno@example.com
-    enabled: true
-    secret: false
-    type: text
-  - name: subjectId
-    value: "1"
-    enabled: true
-    secret: false
-    type: text
-  - name: questionId
-    value: "1"
-    enabled: true
-    secret: false
-    type: text
+    description: ""
