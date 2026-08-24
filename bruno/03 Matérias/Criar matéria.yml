@@ -12,12 +12,24 @@ http:
     type: json
     data: |-
       {
-        "nome": "Matéria de teste",
+        "nome": "Matéria de teste {{runId}}",
         "professorId": {{userId}}
       }
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        if (!bru.getVar("runId")) {
+          bru.setVar("runId", `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        }
+    - type: after-response
+      code: |-
+        if (res.status !== 201) {
+          bru.runner.stopExecution();
+        } else {
+          bru.setVar("subjectId", String(res.body.data.id));
+        }
     - type: tests
       code: |-
         test("Cria uma matéria", function() {
@@ -25,7 +37,6 @@ runtime:
           expect(res.body.success).to.equal(true);
           expect(res.body.data).to.have.property("id");
           expect(res.body.data).to.have.property("professor");
-          bru.setEnvVar("subjectId", String(res.body.data.id));
         });
 
 settings:

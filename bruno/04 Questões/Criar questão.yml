@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "enunciado": "Quanto é 2 + 2?",
+        "enunciado": "Quanto é 2 + 2? {{runId}}",
         "dificuldade": 1,
         "respostaCorreta": "4",
         "subjectId": {{subjectId}},
@@ -21,6 +21,18 @@ http:
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        if (!bru.getVar("runId")) {
+          bru.setVar("runId", `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        }
+    - type: after-response
+      code: |-
+        if (res.status !== 201) {
+          bru.runner.stopExecution();
+        } else {
+          bru.setVar("questionId", String(res.body.data.id));
+        }
     - type: tests
       code: |-
         test("Cria uma questão", function() {
@@ -29,7 +41,6 @@ runtime:
           expect(res.body.data).to.have.property("id");
           expect(res.body.data).to.have.property("subject");
           expect(res.body.data).to.have.property("author");
-          bru.setEnvVar("questionId", String(res.body.data.id));
         });
 
 settings:

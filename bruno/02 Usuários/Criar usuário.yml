@@ -12,13 +12,25 @@ http:
     type: json
     data: |-
       {
-        "nome": "Usuário de teste",
-        "email": "usuario-{{$random.uuid}}@exemplo.com",
+        "nome": "Usuário de teste {{runId}}",
+        "email": "usuario-{{runId}}@exemplo.com",
         "papel": "PROFESSOR"
       }
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        bru.setVar("runId", runId);
+        bru.setVar("userEmail", `usuario-${runId}@exemplo.com`);
+    - type: after-response
+      code: |-
+        if (res.status !== 201) {
+          bru.runner.stopExecution();
+        } else {
+          bru.setVar("userId", String(res.body.data.id));
+        }
     - type: tests
       code: |-
         test("Cria um usuário", function() {
@@ -26,8 +38,6 @@ runtime:
           expect(res.body.success).to.equal(true);
           expect(res.body.data).to.have.property("id");
           expect(res.body.data).to.have.property("email");
-          bru.setEnvVar("userId", String(res.body.data.id));
-          bru.setEnvVar("userEmail", res.body.data.email);
         });
 
 settings:
