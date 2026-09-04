@@ -11,6 +11,16 @@ http:
 
 runtime:
   scripts:
+    - type: after-response
+      code: |-
+        const professorId = bru.getVar("subjectProfessorId");
+
+        if (res.status === 200 && professorId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${professorId}`
+          });
+        }
     - type: tests
       code: |-
         test("Exclui a matéria após remover as questões", function() {

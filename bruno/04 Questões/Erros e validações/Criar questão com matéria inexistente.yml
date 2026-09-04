@@ -15,11 +15,40 @@ http:
         "enunciado": "Questão inválida",
         "dificuldade": 1,
         "subjectId": 999999,
-        "authorId": {{userId}}
+        "authorId": {{missingSubjectAuthorId}}
       }
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const response = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Autor para matéria inexistente",
+            email: `autor-materia-inexistente-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (response.status !== 201) {
+          throw new Error("Não foi possível criar o autor para a matéria inexistente");
+        }
+
+        bru.setVar("missingSubjectAuthorId", String(response.data.data.id));
+    - type: after-response
+      code: |-
+        const authorId = bru.getVar("missingSubjectAuthorId");
+
+        if (authorId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${authorId}`
+          });
+        }
     - type: tests
       code: |-
         test("Informa matéria não encontrada ao criar questão", function() {

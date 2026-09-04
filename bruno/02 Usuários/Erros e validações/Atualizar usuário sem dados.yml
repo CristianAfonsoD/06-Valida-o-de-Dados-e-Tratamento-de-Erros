@@ -7,7 +7,7 @@ info:
 
 http:
   method: PATCH
-  url: "{{baseUrl}}/users/{{userId}}"
+  url: "{{baseUrl}}/users/{{emptyPatchUserId}}"
   body:
     type: json
     data: |-
@@ -15,6 +15,35 @@ http:
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const response = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Usuário para PATCH vazio",
+            email: `patch-vazio-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (response.status !== 201) {
+          throw new Error("Não foi possível criar o usuário para o PATCH vazio");
+        }
+
+        bru.setVar("emptyPatchUserId", String(response.data.data.id));
+    - type: after-response
+      code: |-
+        const userId = bru.getVar("emptyPatchUserId");
+
+        if (userId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${userId}`
+          });
+        }
     - type: tests
       code: |-
         test("Exige ao menos um campo no PATCH", function() {

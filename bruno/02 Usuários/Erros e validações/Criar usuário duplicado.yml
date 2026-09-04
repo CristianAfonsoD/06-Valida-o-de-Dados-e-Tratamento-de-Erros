@@ -13,11 +13,41 @@ http:
     data: |-
       {
         "nome": "Usuário duplicado",
-        "email": "{{userEmail}}"
+        "email": "{{duplicateSeedEmail}}"
       }
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const response = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Usuário base para duplicidade",
+            email: `duplicidade-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (response.status !== 201) {
+          throw new Error("Não foi possível criar o usuário base para a duplicidade");
+        }
+
+        bru.setVar("duplicateSeedId", String(response.data.data.id));
+        bru.setVar("duplicateSeedEmail", response.data.data.email);
+    - type: after-response
+      code: |-
+        const userId = bru.getVar("duplicateSeedId");
+
+        if (userId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${userId}`
+          });
+        }
     - type: tests
       code: |-
         test("Rejeita email já cadastrado", function() {
