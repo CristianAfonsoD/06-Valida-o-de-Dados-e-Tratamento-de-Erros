@@ -13,16 +13,32 @@ http:
     data: |-
       {
         "nome": "Matéria de teste {{runId}}",
-        "professorId": {{userId}}
+        "professorId": {{subjectProfessorId}}
       }
 
 runtime:
   scripts:
     - type: before-request
       code: |-
-        if (!bru.getVar("runId")) {
-          bru.setVar("runId", `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        const runId = bru.getVar("runId") ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        bru.setVar("runId", runId);
+
+        const response = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Professor da matéria",
+            email: `professor-materia-${runId}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (response.status !== 201) {
+          throw new Error("Não foi possível criar o professor da matéria");
         }
+
+        bru.setVar("subjectProfessorId", String(response.data.data.id));
     - type: after-response
       code: |-
         if (res.status === 201) {

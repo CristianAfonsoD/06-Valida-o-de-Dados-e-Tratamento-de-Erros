@@ -15,17 +15,50 @@ http:
         "enunciado": "Quanto é 2 + 2? {{runId}}",
         "dificuldade": 1,
         "respostaCorreta": "4",
-        "subjectId": {{subjectId}},
-        "authorId": {{userId}}
+        "subjectId": {{questionSubjectId}},
+        "authorId": {{questionAuthorId}}
       }
 
 runtime:
   scripts:
     - type: before-request
       code: |-
-        if (!bru.getVar("runId")) {
-          bru.setVar("runId", `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        const runId = bru.getVar("runId") ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        bru.setVar("runId", runId);
+
+        const authorResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Autor da questão",
+            email: `autor-questao-${runId}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (authorResponse.status !== 201) {
+          throw new Error("Não foi possível criar o autor da questão");
         }
+
+        const questionAuthorId = authorResponse.data.data.id;
+        bru.setVar("questionAuthorId", String(questionAuthorId));
+
+        const subjectResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/subjects`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Matéria da questão",
+            professorId: questionAuthorId
+          }
+        });
+
+        if (subjectResponse.status !== 201) {
+          throw new Error("Não foi possível criar a matéria da questão");
+        }
+
+        bru.setVar("questionSubjectId", String(subjectResponse.data.data.id));
     - type: after-response
       code: |-
         if (res.status === 201) {

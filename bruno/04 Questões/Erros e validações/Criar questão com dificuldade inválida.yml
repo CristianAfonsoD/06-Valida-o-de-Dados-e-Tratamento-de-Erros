@@ -14,12 +14,64 @@ http:
       {
         "enunciado": "Questão inválida",
         "dificuldade": 4,
-        "subjectId": {{subjectId}},
-        "authorId": {{userId}}
+        "subjectId": {{invalidDifficultySubjectId}},
+        "authorId": {{invalidDifficultyAuthorId}}
       }
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const authorResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Autor para dificuldade inválida",
+            email: `autor-dificuldade-invalida-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (authorResponse.status !== 201) {
+          throw new Error("Não foi possível criar o autor para a dificuldade inválida");
+        }
+
+        const subjectResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/subjects`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Matéria para dificuldade inválida",
+            professorId: authorResponse.data.data.id
+          }
+        });
+
+        if (subjectResponse.status !== 201) {
+          throw new Error("Não foi possível criar a matéria para a dificuldade inválida");
+        }
+
+        bru.setVar("invalidDifficultyAuthorId", String(authorResponse.data.data.id));
+        bru.setVar("invalidDifficultySubjectId", String(subjectResponse.data.data.id));
+    - type: after-response
+      code: |-
+        const subjectId = bru.getVar("invalidDifficultySubjectId");
+        const authorId = bru.getVar("invalidDifficultyAuthorId");
+
+        if (subjectId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/subjects/${subjectId}`
+          });
+        }
+
+        if (authorId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${authorId}`
+          });
+        }
     - type: tests
       code: |-
         test("Rejeita dificuldade fora do intervalo permitido", function() {

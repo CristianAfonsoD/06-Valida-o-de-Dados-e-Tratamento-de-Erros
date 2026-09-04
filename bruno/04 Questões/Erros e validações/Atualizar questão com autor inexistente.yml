@@ -7,7 +7,7 @@ info:
 
 http:
   method: PATCH
-  url: "{{baseUrl}}/questions/{{questionId}}"
+  url: "{{baseUrl}}/questions/{{missingAuthorQuestionId}}"
   body:
     type: json
     data: |-
@@ -17,6 +17,84 @@ http:
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const authorResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Autor para validação de autor",
+            email: `autor-atualiza-autor-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (authorResponse.status !== 201) {
+          throw new Error("Não foi possível criar o autor para a atualização");
+        }
+
+        const subjectResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/subjects`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Matéria para validação de autor",
+            professorId: authorResponse.data.data.id
+          }
+        });
+
+        if (subjectResponse.status !== 201) {
+          throw new Error("Não foi possível criar a matéria para a atualização");
+        }
+
+        const questionResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/questions`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            enunciado: "Questão para autor inexistente",
+            dificuldade: 1,
+            respostaCorreta: "Resposta",
+            subjectId: subjectResponse.data.data.id,
+            authorId: authorResponse.data.data.id
+          }
+        });
+
+        if (questionResponse.status !== 201) {
+          throw new Error("Não foi possível criar a questão para a atualização");
+        }
+
+        bru.setVar("missingAuthorQuestionAuthorId", String(authorResponse.data.data.id));
+        bru.setVar("missingAuthorQuestionSubjectId", String(subjectResponse.data.data.id));
+        bru.setVar("missingAuthorQuestionId", String(questionResponse.data.data.id));
+    - type: after-response
+      code: |-
+        const questionId = bru.getVar("missingAuthorQuestionId");
+        const subjectId = bru.getVar("missingAuthorQuestionSubjectId");
+        const authorId = bru.getVar("missingAuthorQuestionAuthorId");
+
+        if (questionId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/questions/${questionId}`
+          });
+        }
+
+        if (subjectId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/subjects/${subjectId}`
+          });
+        }
+
+        if (authorId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${authorId}`
+          });
+        }
     - type: tests
       code: |-
         test("Exige autor existente ao atualizar questão", function() {

@@ -11,6 +11,27 @@ http:
 
 runtime:
   scripts:
+    - type: after-response
+      code: |-
+        if (res.status === 200) {
+          const baseUrl = bru.getEnvVar("baseUrl");
+          const subjectId = bru.getVar("questionSubjectId");
+          const authorId = bru.getVar("questionAuthorId");
+
+          if (subjectId) {
+            await bru.sendRequest({
+              method: "DELETE",
+              url: `${baseUrl}/subjects/${subjectId}`
+            });
+          }
+
+          if (authorId) {
+            await bru.sendRequest({
+              method: "DELETE",
+              url: `${baseUrl}/users/${authorId}`
+            });
+          }
+        }
     - type: tests
       code: |-
         test("Exclui uma questão", function() {
