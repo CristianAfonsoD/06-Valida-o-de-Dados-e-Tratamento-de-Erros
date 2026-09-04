@@ -1,0 +1,28 @@
+info:
+  name: Atualizar usuário com email duplicado
+  type: http
+  seq: 27
+  tags:
+    - aula-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/users/{{userId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{conflictUserEmail}}"
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Rejeita atualização com e-mail já cadastrado", function() {
+          expect(res.status).to.equal(409);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

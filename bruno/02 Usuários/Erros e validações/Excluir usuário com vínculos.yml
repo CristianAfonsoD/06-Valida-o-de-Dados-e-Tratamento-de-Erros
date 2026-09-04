@@ -1,0 +1,22 @@
+info:
+  name: Excluir usuário com vínculos
+  type: http
+  seq: 34
+  tags:
+    - aula-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/users/{{userId}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Impede excluir usuário com matérias ou questões", function() {
+          expect(res.status).to.equal(409);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

@@ -1,0 +1,22 @@
+info:
+  name: Excluir matéria com questões vinculadas
+  type: http
+  seq: 39
+  tags:
+    - atividade-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/subjects/{{subjectId}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Impede excluir matéria com questões vinculadas", function() {
+          expect(res.status).to.equal(409);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

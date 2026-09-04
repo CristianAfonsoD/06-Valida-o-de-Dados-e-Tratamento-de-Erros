@@ -1,0 +1,26 @@
+info:
+  name: Atualizar questão sem dados
+  type: http
+  seq: 42
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/questions/{{questionId}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Exige ao menos um campo no PATCH de questão", function() {
+          expect(res.status).to.equal(400);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

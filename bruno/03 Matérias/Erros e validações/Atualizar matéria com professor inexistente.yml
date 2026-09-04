@@ -1,0 +1,28 @@
+info:
+  name: Atualizar matéria com professor inexistente
+  type: http
+  seq: 38
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/subjects/{{subjectId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "professorId": 999999999
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Exige professor existente ao atualizar matéria", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

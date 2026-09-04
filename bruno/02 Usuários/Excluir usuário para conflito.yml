@@ -1,0 +1,22 @@
+info:
+  name: Excluir usuário para conflito
+  type: http
+  seq: 54
+  tags:
+    - aula-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/users/{{conflictUserId}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Remove o usuário temporário usado no conflito", function() {
+          expect(res.status).to.equal(200);
+          expect(res.body.success).to.equal(true);
+        });
+
+settings:
+  encodeUrl: true

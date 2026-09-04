@@ -1,0 +1,28 @@
+info:
+  name: Atualizar questão com matéria inexistente
+  type: http
+  seq: 44
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/questions/{{questionId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "subjectId": 999999999
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Exige matéria existente ao atualizar questão", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

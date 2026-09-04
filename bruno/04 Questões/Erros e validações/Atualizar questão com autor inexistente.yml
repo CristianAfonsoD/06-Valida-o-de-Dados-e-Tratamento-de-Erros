@@ -1,0 +1,28 @@
+info:
+  name: Atualizar questão com autor inexistente
+  type: http
+  seq: 45
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/questions/{{questionId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "authorId": 999999999
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Exige autor existente ao atualizar questão", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

@@ -1,0 +1,28 @@
+info:
+  name: Atualizar questão inexistente
+  type: http
+  seq: 46
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/questions/999999999"
+  body:
+    type: json
+    data: |-
+      {
+        "dificuldade": 2
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Informa questão não encontrada ao atualizar", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

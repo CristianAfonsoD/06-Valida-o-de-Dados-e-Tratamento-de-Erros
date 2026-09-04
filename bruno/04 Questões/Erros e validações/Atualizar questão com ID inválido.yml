@@ -1,0 +1,28 @@
+info:
+  name: Atualizar questão com ID inválido
+  type: http
+  seq: 41
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/questions/abc"
+  body:
+    type: json
+    data: |-
+      {
+        "dificuldade": 2
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Rejeita ID inválido ao atualizar questão", function() {
+          expect(res.status).to.equal(400);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

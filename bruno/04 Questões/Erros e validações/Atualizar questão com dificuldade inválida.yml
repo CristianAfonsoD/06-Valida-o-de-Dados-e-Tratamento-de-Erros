@@ -1,0 +1,28 @@
+info:
+  name: Atualizar questão com dificuldade inválida
+  type: http
+  seq: 43
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/questions/{{questionId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "dificuldade": 4
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Rejeita dificuldade fora do intervalo permitido", function() {
+          expect(res.status).to.equal(400);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

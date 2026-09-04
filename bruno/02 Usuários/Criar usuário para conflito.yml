@@ -1,0 +1,39 @@
+info:
+  name: Criar usuário para conflito
+  type: http
+  seq: 26
+  tags:
+    - aula-05
+
+http:
+  method: POST
+  url: "{{baseUrl}}/users"
+  body:
+    type: json
+    data: |-
+      {
+        "nome": "Usuário para conflito {{runId}}",
+        "email": "{{conflictUserEmail}}",
+        "papel": "ADMIN"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const conflictRunId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        bru.setVar("conflictUserEmail", `conflito-${conflictRunId}@exemplo.com`);
+    - type: after-response
+      code: |-
+        if (res.status === 201) {
+          bru.setVar("conflictUserId", String(res.body.data.id));
+        }
+    - type: tests
+      code: |-
+        test("Cria um usuário para validar conflito de e-mail", function() {
+          expect(res.status).to.equal(201);
+          expect(res.body.success).to.equal(true);
+        });
+
+settings:
+  encodeUrl: true
