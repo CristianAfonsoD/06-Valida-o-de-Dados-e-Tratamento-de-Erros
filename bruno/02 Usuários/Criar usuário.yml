@@ -12,8 +12,8 @@ http:
     type: json
     data: |-
       {
-        "nome": "Usuário de teste {{runId}}",
-        "email": "usuario-{{runId}}@exemplo.com",
+        "nome": "  Usuário de teste {{runId}}  ",
+        "email": "USUARIO-{{runId}}@EXEMPLO.COM",
         "papel": "PROFESSOR"
       }
 
@@ -36,6 +36,8 @@ runtime:
           expect(res.body.success).to.equal(true);
           expect(res.body.data).to.have.property("id");
           expect(res.body.data).to.have.property("email");
+          expect(res.body.data.nome).to.equal(`Usuário de teste ${bru.getVar("runId")}`);
+          expect(res.body.data.email).to.equal(`usuario-${bru.getVar("runId")}@exemplo.com`);
         });
 
 settings:

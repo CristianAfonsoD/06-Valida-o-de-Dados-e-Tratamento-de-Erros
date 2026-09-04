@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "enunciado": "Quanto é 2 + 2? {{runId}}",
+        "enunciado": "  Quanto é 2 + 2? {{runId}}  ",
         "dificuldade": 1,
         "respostaCorreta": "4",
         "subjectId": {{questionSubjectId}},
@@ -72,6 +72,7 @@ runtime:
           expect(res.body.data).to.have.property("id");
           expect(res.body.data).to.have.property("subject");
           expect(res.body.data).to.have.property("author");
+          expect(res.body.data.enunciado).to.equal(`Quanto é 2 + 2? ${bru.getVar("runId")}`);
         });
 
 settings:

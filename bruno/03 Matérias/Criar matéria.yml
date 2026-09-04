@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "nome": "Matéria de teste {{runId}}",
+        "nome": "  Matéria de teste {{runId}}  ",
         "professorId": {{subjectProfessorId}}
       }
 
@@ -51,6 +51,7 @@ runtime:
           expect(res.body.success).to.equal(true);
           expect(res.body.data).to.have.property("id");
           expect(res.body.data).to.have.property("professor");
+          expect(res.body.data.nome).to.equal(`Matéria de teste ${bru.getVar("runId")}`);
         });
 
 settings:
