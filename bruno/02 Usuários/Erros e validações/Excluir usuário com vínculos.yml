@@ -1,0 +1,76 @@
+info:
+  name: Excluir usuário com vínculos
+  type: http
+  seq: 34
+  tags:
+    - aula-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/users/{{linkedUserId}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const userResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Professor com vínculo",
+            email: `professor-vinculo-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (userResponse.status !== 201) {
+          throw new Error("Não foi possível criar o usuário com vínculo");
+        }
+
+        const linkedUserId = userResponse.data.data.id;
+        const subjectResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/subjects`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Matéria temporária para vínculo",
+            professorId: linkedUserId
+          }
+        });
+
+        if (subjectResponse.status !== 201) {
+          throw new Error("Não foi possível criar a matéria temporária para o vínculo");
+        }
+
+        bru.setVar("linkedUserId", String(linkedUserId));
+        bru.setVar("linkedUserSubjectId", String(subjectResponse.data.data.id));
+    - type: after-response
+      code: |-
+        const subjectId = bru.getVar("linkedUserSubjectId");
+
+        if (subjectId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/subjects/${subjectId}`
+          });
+        }
+
+        const userId = bru.getVar("linkedUserId");
+
+        if (userId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${userId}`
+          });
+        }
+    - type: tests
+      code: |-
+        test("Impede excluir usuário com matérias ou questões", function() {
+          expect(res.status).to.equal(409);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

@@ -1,0 +1,83 @@
+info:
+  name: Atualizar usuário com email duplicado
+  type: http
+  seq: 27
+  tags:
+    - aula-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/users/{{duplicateTargetUserId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{duplicateUserEmail}}"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const targetResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Usuário que receberia e-mail duplicado",
+            email: `alvo-duplicado-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (targetResponse.status !== 201) {
+          throw new Error("Não foi possível criar o usuário alvo do conflito");
+        }
+
+        const duplicateResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Usuário temporário para conflito",
+            email: `duplicado-${suffix}@exemplo.com`,
+            papel: "ADMIN"
+          }
+        });
+
+        if (duplicateResponse.status !== 201) {
+          throw new Error("Não foi possível criar o usuário temporário para o conflito");
+        }
+
+        bru.setVar("duplicateTargetUserId", String(targetResponse.data.data.id));
+        bru.setVar("duplicateUserEmail", duplicateResponse.data.data.email);
+        bru.setVar("duplicateUserId", String(duplicateResponse.data.data.id));
+    - type: after-response
+      code: |-
+        const duplicateUserId = bru.getVar("duplicateUserId");
+
+        if (duplicateUserId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${duplicateUserId}`
+          });
+        }
+
+        const targetUserId = bru.getVar("duplicateTargetUserId");
+
+        if (targetUserId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${targetUserId}`
+          });
+        }
+    - type: tests
+      code: |-
+        test("Rejeita atualização com e-mail já cadastrado", function() {
+          expect(res.status).to.equal(409);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

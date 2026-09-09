@@ -1,0 +1,28 @@
+info:
+  name: Atualizar usuário inexistente
+  type: http
+  seq: 31
+  tags:
+    - aula-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/users/999999999"
+  body:
+    type: json
+    data: |-
+      {
+        "nome": "Usuário ausente"
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Informa usuário não encontrado ao atualizar", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

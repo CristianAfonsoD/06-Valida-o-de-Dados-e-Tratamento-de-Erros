@@ -1,0 +1,22 @@
+info:
+  name: Buscar usuário removido
+  type: http
+  seq: 53
+  tags:
+    - aula-05
+
+http:
+  method: GET
+  url: "{{baseUrl}}/users/{{userId}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Confirma que o usuário foi removido", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

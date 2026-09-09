@@ -1,21 +1,18 @@
 info:
-  name: Criar questão com autor inexistente
+  name: Atualizar matéria com professor inexistente
   type: http
-  seq: 22
+  seq: 38
   tags:
-    - atividade-04
+    - atividade-05
 
 http:
-  method: POST
-  url: "{{baseUrl}}/questions"
+  method: PATCH
+  url: "{{baseUrl}}/subjects/{{missingProfessorSubjectId}}"
   body:
     type: json
     data: |-
       {
-        "enunciado": "Questão inválida",
-        "dificuldade": 1,
-        "subjectId": {{missingAuthorSubjectId}},
-        "authorId": 999999
+        "professorId": 999999999
       }
 
 runtime:
@@ -28,14 +25,14 @@ runtime:
           url: `${bru.getEnvVar("baseUrl")}/users`,
           headers: { "Content-Type": "application/json" },
           data: {
-            nome: "Professor para autor inexistente",
-            email: `professor-autor-inexistente-${suffix}@exemplo.com`,
+            nome: "Professor para validação de atualização",
+            email: `professor-atualizacao-${suffix}@exemplo.com`,
             papel: "PROFESSOR"
           }
         });
 
         if (userResponse.status !== 201) {
-          throw new Error("Não foi possível criar o professor para o autor inexistente");
+          throw new Error("Não foi possível criar o professor da matéria de teste");
         }
 
         const subjectResponse = await bru.sendRequest({
@@ -43,21 +40,21 @@ runtime:
           url: `${bru.getEnvVar("baseUrl")}/subjects`,
           headers: { "Content-Type": "application/json" },
           data: {
-            nome: "Matéria para autor inexistente",
+            nome: "Matéria para professor inexistente",
             professorId: userResponse.data.data.id
           }
         });
 
         if (subjectResponse.status !== 201) {
-          throw new Error("Não foi possível criar a matéria para o autor inexistente");
+          throw new Error("Não foi possível criar a matéria de teste");
         }
 
-        bru.setVar("missingAuthorProfessorId", String(userResponse.data.data.id));
-        bru.setVar("missingAuthorSubjectId", String(subjectResponse.data.data.id));
+        bru.setVar("missingProfessorSubjectId", String(subjectResponse.data.data.id));
+        bru.setVar("missingProfessorUserId", String(userResponse.data.data.id));
     - type: after-response
       code: |-
-        const subjectId = bru.getVar("missingAuthorSubjectId");
-        const professorId = bru.getVar("missingAuthorProfessorId");
+        const subjectId = bru.getVar("missingProfessorSubjectId");
+        const userId = bru.getVar("missingProfessorUserId");
 
         if (subjectId) {
           await bru.sendRequest({
@@ -66,15 +63,15 @@ runtime:
           });
         }
 
-        if (professorId) {
+        if (userId) {
           await bru.sendRequest({
             method: "DELETE",
-            url: `${bru.getEnvVar("baseUrl")}/users/${professorId}`
+            url: `${bru.getEnvVar("baseUrl")}/users/${userId}`
           });
         }
     - type: tests
       code: |-
-        test("Informa autor não encontrado ao criar questão", function() {
+        test("Exige professor existente ao atualizar matéria", function() {
           expect(res.status).to.equal(404);
           expect(res.body.success).to.equal(false);
         });

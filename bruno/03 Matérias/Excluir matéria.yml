@@ -1,0 +1,33 @@
+info:
+  name: Excluir matéria
+  type: http
+  seq: 50
+  tags:
+    - atividade-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/subjects/{{subjectId}}"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const professorId = bru.getVar("subjectProfessorId");
+
+        if (res.status === 200 && professorId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${professorId}`
+          });
+        }
+    - type: tests
+      code: |-
+        test("Exclui a matéria após remover as questões", function() {
+          expect(res.status).to.equal(200);
+          expect(res.body.success).to.equal(true);
+          expect(res.body.data.id).to.equal(Number(bru.getVar("subjectId")));
+        });
+
+settings:
+  encodeUrl: true

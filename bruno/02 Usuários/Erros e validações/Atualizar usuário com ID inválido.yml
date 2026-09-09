@@ -1,0 +1,28 @@
+info:
+  name: Atualizar usuário com ID inválido
+  type: http
+  seq: 29
+  tags:
+    - aula-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/users/abc"
+  body:
+    type: json
+    data: |-
+      {
+        "nome": "Nome inválido"
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Rejeita ID inválido na atualização", function() {
+          expect(res.status).to.equal(400);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

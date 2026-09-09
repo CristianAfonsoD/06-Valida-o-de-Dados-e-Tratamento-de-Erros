@@ -1,22 +1,17 @@
 info:
-  name: Criar questão com autor inexistente
+  name: Atualizar matéria sem dados
   type: http
-  seq: 22
+  seq: 37
   tags:
-    - atividade-04
+    - atividade-05
 
 http:
-  method: POST
-  url: "{{baseUrl}}/questions"
+  method: PATCH
+  url: "{{baseUrl}}/subjects/{{emptyPatchSubjectId}}"
   body:
     type: json
     data: |-
-      {
-        "enunciado": "Questão inválida",
-        "dificuldade": 1,
-        "subjectId": {{missingAuthorSubjectId}},
-        "authorId": 999999
-      }
+      {}
 
 runtime:
   scripts:
@@ -28,14 +23,14 @@ runtime:
           url: `${bru.getEnvVar("baseUrl")}/users`,
           headers: { "Content-Type": "application/json" },
           data: {
-            nome: "Professor para autor inexistente",
-            email: `professor-autor-inexistente-${suffix}@exemplo.com`,
+            nome: "Professor para PATCH vazio",
+            email: `professor-patch-vazio-${suffix}@exemplo.com`,
             papel: "PROFESSOR"
           }
         });
 
         if (userResponse.status !== 201) {
-          throw new Error("Não foi possível criar o professor para o autor inexistente");
+          throw new Error("Não foi possível criar o professor para o PATCH vazio");
         }
 
         const subjectResponse = await bru.sendRequest({
@@ -43,21 +38,21 @@ runtime:
           url: `${bru.getEnvVar("baseUrl")}/subjects`,
           headers: { "Content-Type": "application/json" },
           data: {
-            nome: "Matéria para autor inexistente",
+            nome: "Matéria para PATCH vazio",
             professorId: userResponse.data.data.id
           }
         });
 
         if (subjectResponse.status !== 201) {
-          throw new Error("Não foi possível criar a matéria para o autor inexistente");
+          throw new Error("Não foi possível criar a matéria para o PATCH vazio");
         }
 
-        bru.setVar("missingAuthorProfessorId", String(userResponse.data.data.id));
-        bru.setVar("missingAuthorSubjectId", String(subjectResponse.data.data.id));
+        bru.setVar("emptyPatchSubjectId", String(subjectResponse.data.data.id));
+        bru.setVar("emptyPatchSubjectProfessorId", String(userResponse.data.data.id));
     - type: after-response
       code: |-
-        const subjectId = bru.getVar("missingAuthorSubjectId");
-        const professorId = bru.getVar("missingAuthorProfessorId");
+        const subjectId = bru.getVar("emptyPatchSubjectId");
+        const professorId = bru.getVar("emptyPatchSubjectProfessorId");
 
         if (subjectId) {
           await bru.sendRequest({
@@ -74,8 +69,8 @@ runtime:
         }
     - type: tests
       code: |-
-        test("Informa autor não encontrado ao criar questão", function() {
-          expect(res.status).to.equal(404);
+        test("Exige ao menos um campo no PATCH de matéria", function() {
+          expect(res.status).to.equal(400);
           expect(res.body.success).to.equal(false);
         });
 

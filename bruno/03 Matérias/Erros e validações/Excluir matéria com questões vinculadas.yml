@@ -1,0 +1,101 @@
+info:
+  name: Excluir matéria com questões vinculadas
+  type: http
+  seq: 39
+  tags:
+    - atividade-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/subjects/{{linkedSubjectId}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const userResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Professor da matéria vinculada",
+            email: `professor-materia-vinculada-${suffix}@exemplo.com`,
+            papel: "PROFESSOR"
+          }
+        });
+
+        if (userResponse.status !== 201) {
+          throw new Error("Não foi possível criar o professor da matéria vinculada");
+        }
+
+        const subjectResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/subjects`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Matéria temporária com questão",
+            professorId: userResponse.data.data.id
+          }
+        });
+
+        if (subjectResponse.status !== 201) {
+          throw new Error("Não foi possível criar a matéria temporária para o vínculo");
+        }
+
+        const questionResponse = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/questions`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            enunciado: "Questão temporária para vínculo",
+            dificuldade: 1,
+            subjectId: subjectResponse.data.data.id,
+            authorId: userResponse.data.data.id
+          }
+        });
+
+        if (questionResponse.status !== 201) {
+          throw new Error("Não foi possível criar a questão temporária para o vínculo");
+        }
+
+        bru.setVar("linkedSubjectProfessorId", String(userResponse.data.data.id));
+        bru.setVar("linkedSubjectId", String(subjectResponse.data.data.id));
+        bru.setVar("linkedSubjectQuestionId", String(questionResponse.data.data.id));
+    - type: after-response
+      code: |-
+        const questionId = bru.getVar("linkedSubjectQuestionId");
+
+        if (questionId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/questions/${questionId}`
+          });
+        }
+
+        const subjectId = bru.getVar("linkedSubjectId");
+
+        if (subjectId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/subjects/${subjectId}`
+          });
+        }
+
+        const professorId = bru.getVar("linkedSubjectProfessorId");
+
+        if (professorId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${professorId}`
+          });
+        }
+    - type: tests
+      code: |-
+        test("Impede excluir matéria com questões vinculadas", function() {
+          expect(res.status).to.equal(409);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

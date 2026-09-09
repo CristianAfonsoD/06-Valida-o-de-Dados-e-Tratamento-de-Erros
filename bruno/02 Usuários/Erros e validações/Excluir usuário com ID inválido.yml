@@ -1,0 +1,22 @@
+info:
+  name: Excluir usuário com ID inválido
+  type: http
+  seq: 32
+  tags:
+    - aula-05
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/users/abc"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Rejeita ID inválido na exclusão", function() {
+          expect(res.status).to.equal(400);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

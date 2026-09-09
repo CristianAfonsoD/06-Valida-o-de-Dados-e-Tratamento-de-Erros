@@ -1,0 +1,22 @@
+info:
+  name: Buscar questão removida
+  type: http
+  seq: 49
+  tags:
+    - atividade-05
+
+http:
+  method: GET
+  url: "{{baseUrl}}/questions/{{questionId}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Confirma que a questão foi removida", function() {
+          expect(res.status).to.equal(404);
+          expect(res.body.success).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true

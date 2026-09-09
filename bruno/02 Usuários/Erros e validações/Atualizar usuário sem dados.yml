@@ -1,20 +1,17 @@
 info:
-  name: Criar usuário duplicado
+  name: Atualizar usuário sem dados
   type: http
-  seq: 15
+  seq: 30
   tags:
-    - aula-04
+    - aula-05
 
 http:
-  method: POST
-  url: "{{baseUrl}}/users"
+  method: PATCH
+  url: "{{baseUrl}}/users/{{emptyPatchUserId}}"
   body:
     type: json
     data: |-
-      {
-        "nome": "Usuário duplicado",
-        "email": "{{duplicateSeedEmail}}"
-      }
+      {}
 
 runtime:
   scripts:
@@ -26,21 +23,20 @@ runtime:
           url: `${bru.getEnvVar("baseUrl")}/users`,
           headers: { "Content-Type": "application/json" },
           data: {
-            nome: "Usuário base para duplicidade",
-            email: `duplicidade-${suffix}@exemplo.com`,
+            nome: "Usuário para PATCH vazio",
+            email: `patch-vazio-${suffix}@exemplo.com`,
             papel: "PROFESSOR"
           }
         });
 
         if (response.status !== 201) {
-          throw new Error("Não foi possível criar o usuário base para a duplicidade");
+          throw new Error("Não foi possível criar o usuário para o PATCH vazio");
         }
 
-        bru.setVar("duplicateSeedId", String(response.data.data.id));
-        bru.setVar("duplicateSeedEmail", response.data.data.email);
+        bru.setVar("emptyPatchUserId", String(response.data.data.id));
     - type: after-response
       code: |-
-        const userId = bru.getVar("duplicateSeedId");
+        const userId = bru.getVar("emptyPatchUserId");
 
         if (userId) {
           await bru.sendRequest({
@@ -50,8 +46,8 @@ runtime:
         }
     - type: tests
       code: |-
-        test("Rejeita email já cadastrado", function() {
-          expect(res.status).to.equal(409);
+        test("Exige ao menos um campo no PATCH", function() {
+          expect(res.status).to.equal(400);
           expect(res.body.success).to.equal(false);
         });
 

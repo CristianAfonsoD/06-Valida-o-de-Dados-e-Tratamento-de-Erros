@@ -1,0 +1,31 @@
+info:
+  name: Atualizar matéria
+  type: http
+  seq: 35
+  tags:
+    - atividade-05
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/subjects/{{subjectId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "nome": "Matéria atualizada {{runId}}",
+        "ativa": false
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Atualiza parcialmente uma matéria", function() {
+          expect(res.status).to.equal(200);
+          expect(res.body.success).to.equal(true);
+          expect(res.body.data.nome).to.equal(`Matéria atualizada ${bru.getVar("runId")}`);
+          expect(res.body.data.ativa).to.equal(false);
+        });
+
+settings:
+  encodeUrl: true
