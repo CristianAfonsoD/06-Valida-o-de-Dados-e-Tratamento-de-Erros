@@ -68,6 +68,54 @@ afterEach(async () => {
 });
 
 describe("User API com validação", () => {
+  it.each([
+    { nome: "  " },
+    { nome: "x".repeat(101) },
+    { nome: null },
+    { email: "invalido" },
+    { papel: "ALUNO" },
+    { foto: "invalida" },
+    { campoExtra: true },
+  ])("rejeita cada campo inválido isoladamente: %j", async (overrides) => {
+    const response = await createUser(overrides);
+    expectApiError(response, 400, "VALIDATION_ERROR");
+    expect(response.body.error.details.length).toBeGreaterThan(0);
+  });
+
+  it.each(["get", "patch", "delete"])(
+    "valida ID em %s e preserva ausência real",
+    async (method) => {
+      const client = request(app);
+      const created = await createUser();
+      const id = created.body.data.id;
+      await prisma.user.delete({ where: { id } });
+      for (const invalidId of ["abc", "0", "-1", "1.5", "2147483648"]) {
+        const response = await client[method](`/users/${invalidId}`).send(
+          method === "patch" ? { nome: "Novo nome" } : undefined,
+        );
+        expectApiError(response, 400, "VALIDATION_ERROR");
+      }
+      const missing = await client[method](`/users/${id}`).send(
+        method === "patch" ? { nome: "Novo nome" } : undefined,
+      );
+      expectApiError(missing, 404, "NOT_FOUND");
+    },
+  );
+
+  it("preserva omissão e permite remover foto com null", async () => {
+    const created = await createUser({
+      nome: "ABC",
+      foto: "https://example.com/foto.png",
+      papel: "ADMIN",
+    });
+    const response = await request(app)
+      .patch(`/users/${created.body.data.id}`)
+      .send({ foto: null });
+    expect(response.status).toBe(200);
+    expect(response.body.data.foto).toBeNull();
+    expect(response.body.data.papel).toBe("ADMIN");
+  });
+
   it("lista usuários e preserva o contrato de sucesso", async () => {
     const response = await request(app).get("/users");
 
@@ -118,8 +166,11 @@ describe("User API com validação", () => {
   });
 
   it("valida o ID e informa a ausência de um usuário", async () => {
+    const created = await createUser();
+    const id = created.body.data.id;
+    await prisma.user.delete({ where: { id } });
     const invalid = await request(app).get("/users/abc");
-    const missing = await request(app).get("/users/999999999");
+    const missing = await request(app).get(`/users/${id}`);
 
     expectApiError(invalid, 400, "VALIDATION_ERROR");
     expectApiError(missing, 404, "NOT_FOUND");

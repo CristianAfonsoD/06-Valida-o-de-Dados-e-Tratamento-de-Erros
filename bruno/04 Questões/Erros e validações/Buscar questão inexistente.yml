@@ -7,12 +7,57 @@ info:
 
 http:
   method: GET
-  url: "{{baseUrl}}/questions/999999"
+  url: "{{baseUrl}}/questions/{{caseMissingId}}"
 
 runtime:
   scripts:
+    - type: before-request
+      code: |-
+        const baseUrl = bru.getEnvVar("baseUrl");
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        bru.setVar("caseFixtures", []);
+        for (const key of ["caseUserId", "caseSubjectId", "caseQuestionId", "caseMissingId"]) bru.setVar(key, "");
+        /** Cria uma fixture e registra imediatamente seu ID para limpeza. */
+        async function createFixture(resource, data) {
+          const response = await bru.sendRequest({ method: "POST", url: `${baseUrl}/${resource}`, headers: { "Content-Type": "application/json" }, data });
+          if (response.status !== 201) throw new Error(`Falha ao preparar fixture: ${resource} (${response.status})`);
+          const id = response.data.data.id;
+          const fixtures = bru.getVar("caseFixtures");
+          fixtures.push({ resource, id });
+          bru.setVar("caseFixtures", fixtures);
+          return id;
+        }
+        /** Remove somente a fixture recém-criada, reservando um ID realmente ausente. */
+        async function removeFixture(resource, id) {
+          const response = await bru.sendRequest({ method: "DELETE", url: `${baseUrl}/${resource}/${id}` });
+          if (response.status !== 200) throw new Error("Não foi possível preparar ID inexistente");
+          bru.setVar("caseMissingId", String(id));
+          bru.setVar("caseFixtures", bru.getVar("caseFixtures").filter(item => item.resource !== resource || item.id !== id));
+        }
+        const userId = await createFixture("users", { nome: "Professor temporário", email: `fixture-${suffix}@exemplo.com` });
+        bru.setVar("caseUserId", String(userId));
+        const subjectId = await createFixture("subjects", { nome: "Matéria temporária", professorId: userId });
+        bru.setVar("caseSubjectId", String(subjectId));
+        const questionId = await createFixture("questions", { enunciado: "Questão temporária", dificuldade: 2, subjectId, authorId: userId });
+        bru.setVar("caseQuestionId", String(questionId));
+        await removeFixture("questions", questionId);
+    - type: after-response
+      code: |-
+        const fixtures = bru.getVar("caseFixtures") || [];
+        // Uma implementação incompleta pode aceitar uma entrada que deveria falhar.
+
+        const failures = [];
+        for (const fixture of [...fixtures].reverse()) {
+          try {
+            const response = await bru.sendRequest({ method: "DELETE", url: `${bru.getEnvVar("baseUrl")}/${fixture.resource}/${fixture.id}` });
+            if (![200, 404].includes(response.status)) failures.push(`${fixture.resource}/${fixture.id}: ${response.status}`);
+          } catch (error) { if (error.response?.status !== 404) failures.push(error.message); }
+        }
+        bru.setVar("caseFixtures", []);
+        bru.setVar("caseCleanupErrors", failures);
     - type: tests
       code: |-
+        test("Limpa todas as fixtures do cenário", function() { expect(bru.getVar("caseCleanupErrors")).to.deep.equal([]); });
         test("Informa questão não encontrada", function() {
           expect(res.status).to.equal(404);
           expect(res.body.success).to.equal(false);

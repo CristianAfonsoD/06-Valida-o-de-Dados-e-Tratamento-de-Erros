@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { positiveIdSchema } from "./idSchema.js";
 
 const papelSchema = z.enum(["PROFESSOR", "ADMIN"], {
   message: "Papel deve ser PROFESSOR ou ADMIN",
@@ -43,8 +44,5 @@ export const updateUserSchema = z
 
 /** Schema para parâmetros :id positivos. */
 export const idParamSchema = z.object({
-  id: z.coerce
-    .number()
-    .int("ID deve ser inteiro")
-    .positive("ID deve ser positivo"),
+  id: positiveIdSchema,
 });

@@ -1,4 +1,8 @@
-import { AppError, NotFoundError } from "../errors/AppError.js";
+import {
+  AppError,
+  NotFoundError,
+  ValidationError,
+} from "../errors/AppError.js";
 
 /**
  * Encaminha rotas não encontradas para o contrato de erro padronizado da API.
@@ -24,6 +28,20 @@ export function notFoundHandler(req, _res, next) {
 export default function errorHandler(error, req, res, next) {
   if (res.headersSent) {
     return next(error);
+  }
+
+  // Erros conhecidos do express.json() acontecem antes da validação Zod.
+  // Não confie em qualquer error.status: traduza somente tipos reconhecidos.
+  if (error?.type === "entity.parse.failed" && error.status === 400) {
+    error = new ValidationError("JSON malformado", [
+      { field: "body", message: "Envie um documento JSON válido" },
+    ]);
+  } else if (error?.type === "entity.too.large" && error.status === 413) {
+    error = new AppError(
+      "Corpo da requisição excede o limite de 100 KB",
+      413,
+      "PAYLOAD_TOO_LARGE",
+    );
   }
 
   if (error instanceof AppError && error.isOperational) {

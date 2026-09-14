@@ -8,8 +8,9 @@ import errorHandler, { notFoundHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 
+/** Health check: preserva o contrato de monitoramento 200/503 da Aula 05. */
 app.get("/health", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;

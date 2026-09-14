@@ -90,6 +90,16 @@ function expectApiError(response, status, code) {
   expect(response.body.path).toEqual(expect.any(String));
 }
 
+/**
+ * Reserva um ID realmente inexistente criando e removendo uma fixture sem vínculos.
+ * @returns {Promise<number>} ID que não pertence a outro usuário.
+ */
+async function missingUserId() {
+  const user = await createUser();
+  await prisma.user.delete({ where: { id: user.id } });
+  return user.id;
+}
+
 /** Remove fixtures na ordem questão → matéria → usuário. */
 afterEach(async () => {
   await prisma.question.deleteMany({
@@ -102,6 +112,65 @@ afterEach(async () => {
 });
 
 describe("Subject API com validação", () => {
+  it.each([
+    { nome: "x".repeat(101) },
+    { nome: null },
+    { professorId: 0 },
+    { professorId: true },
+    { professorId: [1] },
+    { professorId: 2147483648 },
+    { ativa: "false" },
+    { campoExtra: true },
+  ])(
+    "rejeita campo isolado em POST e PATCH de matéria: %j",
+    async (invalid) => {
+      const professor = await createUser();
+      const subject = await createSubject(professor.id);
+      const post = await request(app)
+        .post("/subjects")
+        .send({
+          nome: "Matéria válida",
+          professorId: professor.id,
+          ...invalid,
+        });
+      if (post.status === 201) subjectIds.push(post.body.data.id);
+      const patch = await request(app)
+        .patch(`/subjects/${subject.id}`)
+        .send(invalid);
+      expectApiError(post, 400, "VALIDATION_ERROR");
+      expectApiError(patch, 400, "VALIDATION_ERROR");
+    },
+  );
+
+  it.each(["get", "patch", "delete"])(
+    "valida parâmetros e ausência de matéria em %s",
+    async (method) => {
+      const client = request(app);
+      const professor = await createUser();
+      const subject = await createSubject(professor.id);
+      await prisma.subject.delete({ where: { id: subject.id } });
+      for (const id of ["abc", "0", "-1", "1.5", "2147483648"]) {
+        const invalid = await client[method](`/subjects/${id}`).send(
+          method === "patch" ? { nome: "Novo nome" } : undefined,
+        );
+        expectApiError(invalid, 400, "VALIDATION_ERROR");
+      }
+      const missing = await client[method](`/subjects/${subject.id}`).send(
+        method === "patch" ? { nome: "Novo nome" } : undefined,
+      );
+      expectApiError(missing, 404, "NOT_FOUND");
+    },
+  );
+
+  it("aceita limites, professor em texto decimal e ativa false", async () => {
+    const professor = await createUser();
+    const subject = await createSubject(String(professor.id), {
+      nome: "x".repeat(100),
+      ativa: false,
+    });
+    expect(subject.nome).toHaveLength(100);
+    expect(subject.ativa).toBe(false);
+  });
   it("rejeita corpo inválido, campo extra e parâmetro inválido", async () => {
     const invalidBody = await request(app).post("/subjects").send({
       nome: " ",
@@ -116,10 +185,12 @@ describe("Subject API com validação", () => {
   });
 
   it("retorna erro padronizado quando o professor não existe", async () => {
-    const response = await request(app).post("/subjects").send({
-      nome: "Matéria sem professor",
-      professorId: 999999999,
-    });
+    const response = await request(app)
+      .post("/subjects")
+      .send({
+        nome: "Matéria sem professor",
+        professorId: await missingUserId(),
+      });
 
     expectApiError(response, 404, "NOT_FOUND");
   });
@@ -147,7 +218,7 @@ describe("Subject API com validação", () => {
       .send({ nome: "  Banco de Dados  " });
     const missingProfessor = await request(app)
       .patch(`/subjects/${subject.id}`)
-      .send({ professorId: 999999999 });
+      .send({ professorId: await missingUserId() });
 
     expect(updated.status).toBe(200);
     expect(updated.body.data.nome).toBe("Banco de Dados");
@@ -193,6 +264,96 @@ describe("Subject API com validação", () => {
 });
 
 describe("Question API com validação", () => {
+  it.each([
+    { enunciado: "  " },
+    { enunciado: "x".repeat(501) },
+    { dificuldade: 0 },
+    { dificuldade: 4 },
+    { dificuldade: 1.5 },
+    { dificuldade: true },
+    { dificuldade: [1] },
+    { respostaCorreta: "  " },
+    { respostaCorreta: "x".repeat(501) },
+    { subjectId: 0 },
+    { authorId: true },
+    { authorId: [1] },
+    { subjectId: 2147483648 },
+    { ativa: "false" },
+    { campoExtra: true },
+  ])(
+    "rejeita campo isolado em POST e PATCH de questão: %j",
+    async (invalid) => {
+      const author = await createUser();
+      const subject = await createSubject(author.id);
+      const question = await createQuestion(subject.id, author.id);
+      const post = await request(app)
+        .post("/questions")
+        .send({
+          enunciado: "Questão válida",
+          dificuldade: 2,
+          subjectId: subject.id,
+          authorId: author.id,
+          ...invalid,
+        });
+      if (post.status === 201) questionIds.push(post.body.data.id);
+      const patch = await request(app)
+        .patch(`/questions/${question.id}`)
+        .send(invalid);
+      expectApiError(post, 400, "VALIDATION_ERROR");
+      expectApiError(patch, 400, "VALIDATION_ERROR");
+    },
+  );
+
+  it.each(["get", "patch", "delete"])(
+    "valida ID de questão em %s",
+    async (method) => {
+      const client = request(app);
+      for (const id of ["abc", "0", "-1", "1.5", "2147483648"]) {
+        const response = await client[method](`/questions/${id}`).send(
+          method === "patch" ? { dificuldade: 2 } : undefined,
+        );
+        expectApiError(response, 400, "VALIDATION_ERROR");
+      }
+    },
+  );
+
+  it("aceita limites, texto decimal, resposta nula e ativa false", async () => {
+    const author = await createUser();
+    const subject = await createSubject(author.id);
+    const question = await createQuestion(
+      String(subject.id),
+      String(author.id),
+      {
+        enunciado: "x".repeat(500),
+        dificuldade: "3",
+        respostaCorreta: null,
+        ativa: false,
+      },
+    );
+    expect(question.enunciado).toHaveLength(500);
+    expect(question.dificuldade).toBe(3);
+    expect(question.respostaCorreta).toBeNull();
+    expect(question.ativa).toBe(false);
+  });
+
+  it("confere matéria no POST e autor no PATCH usando IDs removidos", async () => {
+    const author = await createUser();
+    const subject = await createSubject(author.id);
+    const question = await createQuestion(subject.id, author.id);
+    const removed = await createSubject(author.id);
+    await prisma.subject.delete({ where: { id: removed.id } });
+    const post = await request(app).post("/questions").send({
+      enunciado: "Questão válida",
+      dificuldade: 1,
+      subjectId: removed.id,
+      authorId: author.id,
+    });
+    const patch = await request(app)
+      .patch(`/questions/${question.id}`)
+      .send({ authorId: await missingUserId() });
+    expectApiError(post, 404, "NOT_FOUND");
+    expectApiError(patch, 404, "NOT_FOUND");
+  });
   it("rejeita corpo inválido, campo extra e autor inexistente", async () => {
     const author = await createUser();
     const subject = await createSubject(author.id);
@@ -204,12 +365,14 @@ describe("Question API com validação", () => {
       authorId: author.id,
       inesperado: true,
     });
-    const missingAuthor = await request(app).post("/questions").send({
-      enunciado: "Questão válida",
-      dificuldade: 1,
-      subjectId: subject.id,
-      authorId: 999999999,
-    });
+    const missingAuthor = await request(app)
+      .post("/questions")
+      .send({
+        enunciado: "Questão válida",
+        dificuldade: 1,
+        subjectId: subject.id,
+        authorId: await missingUserId(),
+      });
 
     expectApiError(invalid, 400, "VALIDATION_ERROR");
     expectApiError(missingAuthor, 404, "NOT_FOUND");
@@ -254,6 +417,8 @@ describe("Question API com validação", () => {
     const author = await createUser();
     const subject = await createSubject(author.id);
     const question = await createQuestion(subject.id, author.id);
+    const missingSubject = await createSubject(author.id);
+    await prisma.subject.delete({ where: { id: missingSubject.id } });
 
     const invalidDifficulty = await request(app)
       .patch(`/questions/${question.id}`)
@@ -267,15 +432,15 @@ describe("Question API com validação", () => {
     const extra = await request(app)
       .patch(`/questions/${question.id}`)
       .send({ inesperado: true });
-    const missingSubject = await request(app)
+    const missingRelation = await request(app)
       .patch(`/questions/${question.id}`)
-      .send({ subjectId: 999999999 });
+      .send({ subjectId: missingSubject.id });
 
     expectApiError(invalidDifficulty, 400, "VALIDATION_ERROR");
     expectApiError(invalidId, 400, "VALIDATION_ERROR");
     expectApiError(empty, 400, "VALIDATION_ERROR");
     expectApiError(extra, 400, "VALIDATION_ERROR");
-    expectApiError(missingSubject, 404, "NOT_FOUND");
+    expectApiError(missingRelation, 404, "NOT_FOUND");
   });
 
   it("remove uma questão e padroniza a ausência posterior", async () => {
@@ -292,10 +457,14 @@ describe("Question API com validação", () => {
   });
 
   it("retorna erro padronizado para questão inexistente", async () => {
+    const author = await createUser();
+    const subject = await createSubject(author.id);
+    const question = await createQuestion(subject.id, author.id);
+    await prisma.question.delete({ where: { id: question.id } });
     const update = await request(app)
-      .patch("/questions/999999999")
+      .patch(`/questions/${question.id}`)
       .send({ dificuldade: 2 });
-    const remove = await request(app).delete("/questions/999999999");
+    const remove = await request(app).delete(`/questions/${question.id}`);
 
     expectApiError(update, 404, "NOT_FOUND");
     expectApiError(remove, 404, "NOT_FOUND");

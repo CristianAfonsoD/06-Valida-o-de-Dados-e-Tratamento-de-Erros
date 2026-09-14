@@ -1,0 +1,7 @@
+node_modules/
+generated/
+coverage/
+aulas/
+.agents/
+.codex/
+package-lock.json
