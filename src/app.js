@@ -1,19 +1,19 @@
 //src/app.js
 import express from "express";
 import prisma from "./config/database.js";
-import questionRoutes from "./routes/questionRoutes.js";
-import subjectRoutes from "./routes/subjectRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import subjectRoutes from "./routes/subjectRoutes.js";
+import questionRoutes from "./routes/questionRoutes.js";
 
 const app = express();
 
 app.use(express.json());
 
-app.get("/health", async (req, res) => {
+app.get("/health", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
 
-    res.status(200).json({
+    return res.status(200).json({
       status: "OK",
       message: "API do Gerador de Provas",
       timestamp: new Date().toISOString(),
@@ -25,7 +25,7 @@ app.get("/health", async (req, res) => {
   } catch (error) {
     console.error("Erro na verificação do banco:", error);
 
-    res.status(503).json({
+    return res.status(503).json({
       status: "DEGRADED",
       message: "API do Gerador de Provas",
       services: {
@@ -41,9 +41,9 @@ app.use("/subjects", subjectRoutes);
 app.use("/questions", questionRoutes);
 
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
-    message: "Rota " + req.method + " " + req.originalUrl + " não encontrada",
+    message: `Rota ${req.method} ${req.originalUrl} não encontrada`,
   });
 });
 

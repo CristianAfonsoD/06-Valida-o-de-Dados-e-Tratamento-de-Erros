@@ -1,22 +1,55 @@
-import prisma from "../config/database.js";
+import * as questionService from "../services/questionService.js";
 
-const publicUserSelect = {
-  id: true,
-  nome: true,
-  email: true,
-  papel: true,
-  foto: true,
-};
-
-const publicSubjectSelect = {
-  id: true,
-  nome: true,
-  ativa: true,
-};
+const allowedPatchFields = [
+  "enunciado",
+  "dificuldade",
+  "respostaCorreta",
+  "subjectId",
+  "authorId",
+  "ativa",
+];
 
 function toPositiveInt(value) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function toDifficulty(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 1 && number <= 3 ? number : null;
+}
+
+function hasAllowedPatchField(body) {
+  return allowedPatchFields.some((field) => Object.hasOwn(body, field));
+}
+
+function hasInvalidQuestionFields({ enunciado, respostaCorreta, ativa }) {
+  return (
+    (enunciado !== undefined &&
+      (typeof enunciado !== "string" || !enunciado.trim())) ||
+    (respostaCorreta !== undefined &&
+      respostaCorreta !== null &&
+      typeof respostaCorreta !== "string") ||
+    (ativa !== undefined && typeof ativa !== "boolean")
+  );
+}
+
+function relationErrorResponse(res, result, data) {
+  if (result.reason === "SUBJECT_NOT_FOUND") {
+    return res.status(404).json({
+      success: false,
+      message: `Matéria com ID ${data.subjectId} não encontrada`,
+    });
+  }
+
+  if (result.reason === "AUTHOR_NOT_FOUND") {
+    return res.status(404).json({
+      success: false,
+      message: `Autor com ID ${data.authorId} não encontrado`,
+    });
+  }
+
+  return null;
 }
 
 export const create = async (req, res) => {
@@ -29,18 +62,17 @@ export const create = async (req, res) => {
       authorId,
       ativa,
     } = req.body;
+    const difficultyNumber = toDifficulty(dificuldade);
     const subjectIdNumber = toPositiveInt(subjectId);
     const authorIdNumber = toPositiveInt(authorId);
-    const difficultyNumber = Number(dificuldade);
 
     if (
       typeof enunciado !== "string" ||
       !enunciado.trim() ||
+      !difficultyNumber ||
       !subjectIdNumber ||
       !authorIdNumber ||
-      !Number.isInteger(difficultyNumber) ||
-      difficultyNumber < 1 ||
-      difficultyNumber > 3
+      hasInvalidQuestionFields({ enunciado, respostaCorreta, ativa })
     ) {
       return res.status(400).json({
         success: false,
@@ -49,55 +81,24 @@ export const create = async (req, res) => {
       });
     }
 
-    const subject = await prisma.subject.findUnique({
-      where: { id: subjectIdNumber },
-      select: { id: true },
-    });
+    const data = {
+      enunciado,
+      dificuldade: difficultyNumber,
+      respostaCorreta,
+      subjectId: subjectIdNumber,
+      authorId: authorIdNumber,
+      ativa,
+    };
+    const result = await questionService.createQuestion(data);
 
-    if (!subject) {
-      return res.status(404).json({
-        success: false,
-        message: `Matéria com ID ${subjectIdNumber} não encontrada`,
-      });
+    if (!result.ok) {
+      return relationErrorResponse(res, result, data);
     }
-
-    const author = await prisma.user.findUnique({
-      where: { id: authorIdNumber },
-      select: { id: true },
-    });
-
-    if (!author) {
-      return res.status(404).json({
-        success: false,
-        message: `Autor com ID ${authorIdNumber} não encontrado`,
-      });
-    }
-
-    const novaQuestao = await prisma.question.create({
-      data: {
-        enunciado: enunciado.trim(),
-        dificuldade: difficultyNumber,
-        respostaCorreta: respostaCorreta?.trim() || null,
-        subjectId: subjectIdNumber,
-        authorId: authorIdNumber,
-        ativa: ativa ?? true,
-      },
-      select: {
-        id: true,
-        enunciado: true,
-        dificuldade: true,
-        respostaCorreta: true,
-        ativa: true,
-        createdAt: true,
-        subject: { select: publicSubjectSelect },
-        author: { select: publicUserSelect },
-      },
-    });
 
     return res.status(201).json({
       success: true,
       message: "Questão criada com sucesso",
-      data: novaQuestao,
+      data: result.data,
     });
   } catch (error) {
     console.error("Erro ao criar questão:", error);
@@ -110,24 +111,12 @@ export const create = async (req, res) => {
 
 export const getAll = async (_req, res) => {
   try {
-    const questoes = await prisma.question.findMany({
-      select: {
-        id: true,
-        enunciado: true,
-        dificuldade: true,
-        respostaCorreta: true,
-        ativa: true,
-        createdAt: true,
-        subject: { select: publicSubjectSelect },
-        author: { select: publicUserSelect },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const questions = await questionService.getAllQuestions();
 
     return res.status(200).json({
       success: true,
-      data: questoes,
-      total: questoes.length,
+      data: questions,
+      total: questions.length,
     });
   } catch (error) {
     console.error("Erro ao listar questões:", error);
@@ -149,21 +138,9 @@ export const getById = async (req, res) => {
       });
     }
 
-    const questao = await prisma.question.findUnique({
-      where: { id: questionId },
-      select: {
-        id: true,
-        enunciado: true,
-        dificuldade: true,
-        respostaCorreta: true,
-        ativa: true,
-        createdAt: true,
-        subject: { select: publicSubjectSelect },
-        author: { select: publicUserSelect },
-      },
-    });
+    const question = await questionService.getQuestionById(questionId);
 
-    if (!questao) {
+    if (!question) {
       return res.status(404).json({
         success: false,
         message: `Questão com ID ${questionId} não encontrada`,
@@ -172,13 +149,118 @@ export const getById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: questao,
+      data: question,
     });
   } catch (error) {
     console.error("Erro ao buscar questão:", error);
     return res.status(500).json({
       success: false,
       message: "Erro ao buscar questão",
+    });
+  }
+};
+
+export const update = async (req, res) => {
+  try {
+    const questionId = toPositiveInt(req.params.id);
+
+    if (!questionId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID inválido. Deve ser um número inteiro positivo",
+      });
+    }
+
+    if (!hasAllowedPatchField(req.body) || hasInvalidQuestionFields(req.body)) {
+      return res.status(400).json({
+        success: false,
+        message: "Envie ao menos um campo válido da questão",
+      });
+    }
+
+    const data = { ...req.body };
+
+    if (Object.hasOwn(data, "dificuldade")) {
+      data.dificuldade = toDifficulty(data.dificuldade);
+
+      if (!data.dificuldade) {
+        return res.status(400).json({
+          success: false,
+          message: "Dificuldade deve ser um inteiro entre 1 e 3",
+        });
+      }
+    }
+
+    for (const field of ["subjectId", "authorId"]) {
+      if (Object.hasOwn(data, field)) {
+        data[field] = toPositiveInt(data[field]);
+
+        if (!data[field]) {
+          return res.status(400).json({
+            success: false,
+            message: `${field} deve ser um número inteiro positivo`,
+          });
+        }
+      }
+    }
+
+    const result = await questionService.updateQuestion(questionId, data);
+
+    if (!result.ok && result.reason === "NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        message: `Questão com ID ${questionId} não encontrada`,
+      });
+    }
+
+    if (!result.ok) {
+      return relationErrorResponse(res, result, data);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Questão atualizada com sucesso",
+      data: result.data,
+    });
+  } catch (error) {
+    console.error("Erro ao atualizar questão:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erro ao atualizar questão",
+    });
+  }
+};
+
+export const remove = async (req, res) => {
+  try {
+    const questionId = toPositiveInt(req.params.id);
+
+    if (!questionId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID inválido. Deve ser um número inteiro positivo",
+      });
+    }
+
+    const result = await questionService.deleteQuestion(questionId);
+
+    if (!result.ok && result.reason === "NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        message: `Questão com ID ${questionId} não encontrada`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Questão removida com sucesso",
+      data: result.data,
+    });
+  } catch (error) {
+    console.error("Erro ao remover questão:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erro ao remover questão",
     });
   }
 };
