@@ -6,6 +6,16 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
   {
+    ignores: [
+      "aulas/**",
+      ".agents/**",
+      ".codex/**",
+      "generated/**",
+      "coverage/**",
+      "package-lock.json",
+    ],
+  },
+  {
     files: ["**/*.{js,mjs,cjs}"],
     plugins: { js },
     extends: ["js/recommended"],

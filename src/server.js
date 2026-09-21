@@ -10,6 +10,11 @@ const server = app.listen(PORT, () => {
   console.log("Usuários: http://localhost:" + PORT + "/users");
 });
 
+/**
+ * Encerra o servidor HTTP e libera a conexão com o banco.
+ * @param {string} signal - Sinal recebido pelo processo.
+ * @returns {Promise<void>} Encerramento solicitado.
+ */
 async function shutdown(signal) {
   console.log("Recebido " + signal + ". Encerrando...");
 

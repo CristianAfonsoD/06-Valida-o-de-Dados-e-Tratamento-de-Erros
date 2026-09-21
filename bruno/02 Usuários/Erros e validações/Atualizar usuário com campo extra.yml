@@ -1,0 +1,60 @@
+info:
+  name: Atualizar usuário com campo extra
+  type: http
+  seq: 56
+  tags:
+    - aula-06
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/users/{{strictPatchUserId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "campoExtra": true
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const response = await bru.sendRequest({
+          method: "POST",
+          url: `${bru.getEnvVar("baseUrl")}/users`,
+          headers: { "Content-Type": "application/json" },
+          data: {
+            nome: "Usuário para campo extra",
+            email: `campo-extra-${suffix}@exemplo.com`
+          }
+        });
+
+        if (response.status !== 201) {
+          throw new Error("Não foi possível criar o usuário para validar campo extra");
+        }
+
+        bru.setVar("strictPatchUserId", String(response.data.data.id));
+    - type: after-response
+      code: |-
+        const userId = bru.getVar("strictPatchUserId");
+
+        if (userId) {
+          await bru.sendRequest({
+            method: "DELETE",
+            url: `${bru.getEnvVar("baseUrl")}/users/${userId}`
+          });
+        }
+    - type: tests
+      code: |-
+        test("Rejeita campos não permitidos no PATCH", function() {
+          expect(res.status).to.equal(400);
+          expect(res.body.success).to.equal(false);
+          expect(res.body.error.code).to.equal("VALIDATION_ERROR");
+          expect(res.body.error.details).to.be.an("array");
+          expect(res.body.timestamp).to.be.a("string");
+          expect(res.body.path).to.be.a("string");
+        });
+
+settings:
+  encodeUrl: true
