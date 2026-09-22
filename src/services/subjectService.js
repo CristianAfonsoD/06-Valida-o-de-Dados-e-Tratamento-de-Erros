@@ -1,4 +1,5 @@
 import prisma from "../config/database.js";
+import { ConflictError, NotFoundError } from "../errors/AppError.js";
 
 const publicUserSelect = {
   id: true,
@@ -25,10 +26,16 @@ export const getAllSubjects = async () => {
 };
 
 export const getSubjectById = async (subjectId) => {
-  return prisma.subject.findUnique({
+  const subject = await prisma.subject.findUnique({
     where: { id: subjectId },
     select: publicSubjectSelect,
   });
+
+  if (!subject) {
+    throw new NotFoundError("Disciplina não encontrada");
+  }
+
+  return subject;
 };
 
 export const createSubject = async (subjectData) => {
@@ -38,7 +45,7 @@ export const createSubject = async (subjectData) => {
   });
 
   if (!professor) {
-    return { ok: false, reason: "PROFESSOR_NOT_FOUND" };
+    throw new NotFoundError("Professor não encontrado");
   }
 
   const subject = await prisma.subject.create({
@@ -60,7 +67,7 @@ export const updateSubject = async (subjectId, subjectData) => {
   });
 
   if (!subjectExists) {
-    return { ok: false, reason: "NOT_FOUND" };
+    throw new NotFoundError("Disciplina não encontrada");
   }
 
   if (Object.hasOwn(subjectData, "professorId")) {
@@ -70,7 +77,7 @@ export const updateSubject = async (subjectId, subjectData) => {
     });
 
     if (!professor) {
-      return { ok: false, reason: "PROFESSOR_NOT_FOUND" };
+      throw new NotFoundError("Professor não encontrado");
     }
   }
 
@@ -107,11 +114,13 @@ export const deleteSubject = async (subjectId) => {
   });
 
   if (!subjectExists) {
-    return { ok: false, reason: "NOT_FOUND" };
+    throw new NotFoundError("Disciplina não encontrada");
   }
 
   if (subjectExists._count.questions > 0) {
-    return { ok: false, reason: "SUBJECT_IN_USE" };
+    throw new ConflictError(
+      "Disciplina possui questões relacionadas e não pode ser excluída",
+    );
   }
 
   try {
@@ -123,11 +132,13 @@ export const deleteSubject = async (subjectId) => {
     return { ok: true, data: subject };
   } catch (error) {
     if (error.code === "P2003" || error.code === "P2014") {
-      return { ok: false, reason: "SUBJECT_IN_USE" };
+      throw new ConflictError(
+        "Disciplina possui questões relacionadas e não pode ser excluída",
+      );
     }
 
     if (error.code === "P2025") {
-      return { ok: false, reason: "NOT_FOUND" };
+      throw new NotFoundError("Disciplina não encontrada");
     }
 
     throw error;
